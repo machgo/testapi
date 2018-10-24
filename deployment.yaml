@@ -1,0 +1,68 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: api-balou-in
+  namespace: default
+spec:
+  secretName: api-balou-in-tls
+  issuerRef:
+    name: letsencrypt-prod
+  commonName: api.balou.in
+  dnsNames:
+  - api.balou.in
+  acme:
+    config:
+    - http01:
+        ingressClass: nginx
+      domains:
+      - api.balou.in
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: testapi
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    name: web
+  selector:
+    app: testapi
+---
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: testapi-deployment
+spec:
+  selector:
+    matchLabels:
+      app: testapi
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: testapi
+    spec:
+      containers:
+      - name: testapi
+        image: gcr.io/kubtest-219714/testapi
+        ports:
+        - containerPort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: testapi
+spec:
+  rules:
+  - host: api.balou.in
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: testapi
+          servicePort: web
+  tls:
+  - hosts:
+    - api.balou.in
+    secretName: api-balou-in-tls
